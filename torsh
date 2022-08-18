@@ -1,0 +1,166 @@
+#! /bin/sh
+
+# DEFAULT
+port=9999
+tor_proxy_port=19959
+reconnect=false
+
+# COLORS
+NOCOLOR='\033[0m'
+
+RED='\033[00;31m'
+GREEN='\033[00;32m'
+YELLOW='\033[00;33m'
+BLUE='\033[00;34m'
+PURPLE='\033[00;35m'
+CYAN='\033[00;36m'
+LIGHTGRAY='\033[00;37m'
+
+LRED='\033[01;31m'
+LGREEN='\033[01;32m'
+LYELLOW='\033[01;33m'
+LBLUE='\033[01;34m'
+LPURPLE='\033[01;35m'
+LCYAN='\033[01;36m'
+WHITE='\033[01;37m'
+
+# GLOBAL
+VERSION=0
+SMALL_HELP="Usage: ${YELLOW}torsh ${GREEN}[listen] [connect <address> [-r reconnect]] [-p <port>]${NOCOLOR}\n${LYELLOW}torsh -h ${LCYAN}-> more details${NOCOLOR}"
+HELP="Usage: ${LCYAN}torsh ${LYELLOW}[operation] ${LGREEN}{arguments} {options}${NOCOLOR}\n\n${LCYAN}OPERATIONS:${NOCOLOR}\n\t${LYELLOW}listen${LGREEN} {options}${NOCOLOR}\n\t\t${LYELLOW}-p ${LGREEN}[listening port number]${NOCOLOR} (9999 DEFAULT)\n\n\t${LYELLOW}connect ${LGREEN}[address] {options} ${NOCOLOR}\n\t\t\t${LYELLOW} -p ${LGREEN}[connect port number]${NOCOLOR} (9999 DEFAULT)\n\t\t\t${LYELLOW} -r${NOCOLOR} ${LCYAN}Reconnect${NOCOLOR} if connection is lost\n\n\n\t${LYELLOW}update${NOCOLOR} Update TorSh to the latest version\n\n\t${LRED}remove${NOCOLOR} Remove TorSh and all its data!\n\n\n${LCYAN}OPTIONS:${NOCOLOR}\n\t${LYELLOW}-p${LGREEN} [port number]${NOCOLOR} Port number used in current operation.\n\t\t\t OPTIONAL, 9999 used if not specified.\n\n\t${LYELLOW}-r ${LCYAN}RECOMENDED${NOCOLOR} If specified, device will try to connect\n\t\t\tto the address until TorSh is closed.\n\n\t${LYELLOW}-h${NOCOLOR} Print Help screen\n\n\n${LCYAN}EXAMPLES:${NOCOLOR}\n\t${LCYAN}Listening:${NOCOLOR}\n\t\t${YELLOW}torsh listen -p 5000\n\n\t${LCYAN}Connecting:${NOCOLOR}\n\t\t${YELLOW}torsh connect address.onion -p 5000 -r${NOCOLOR}"
+
+cleanup() {
+	reconnect=false
+	rm -r /tmp/torsh
+	kill $tor_pid
+	kill $cfu_pid > /dev/null
+}
+
+# MODE
+mode="$1"
+address="$2"
+if [ "$mode" = "listen" ]; then shift; fi
+if [ "$mode" = "connect" ]; then shift; shift; fi
+
+# OPTIONS
+while getopts "::hrp:" option; do
+   case $option in
+      h) # Help
+         echo $HELP
+         exit;;
+      p) # Port
+         port=$OPTARG;;
+      r) # Reconnect
+         reconnect=true;;
+     \?) # Invalid option
+         echo "Error: Invalid option"
+         exit;;
+   esac
+done
+
+# Invalid Mode
+if [ "$mode" != "listen" ] && [ "$mode" != "connect" ] && [ "$mode" != "upgrade" ] && [ "$mode" != "remove" ]; then
+	echo $SMALL_HELP
+	exit
+fi
+
+trap cleanup INT
+
+# Check for updates
+if [ $(/usr/lib/torsh/curl -s https://raw.githubusercontent.com/pisoj/torsh/master/version.txt) > $VERSION ]; then echo "${YELLOW}New version avaible! Run ${LYELLOW}torsh upgrade${YELLOW} to install it.${NOCOLOR}"; fi &
+cfu_pid=$!
+
+# MAIN
+
+# Prepair
+mkdir /tmp/torsh
+
+# listen
+if [ "$mode" = "listen" ]; then
+
+	# Create torrc
+	echo "SocksPort 0\nDataDirectory /etc/torsh/$USER/dict/\nHiddenServiceDir /etc/torsh/$USER/\nHiddenServicePort $port 127.0.0.1:$port" 1> /tmp/torsh/torrc
+
+	echo "\n${CYAN}Your address:${LCYAN}"
+	cat /etc/torsh/$USER/hostname
+	echo "${NOCOLOR}"
+	
+	# Start tor and netcat
+	/usr/lib/torsh/tor -f /tmp/torsh/torrc &
+	tor_pid=$!
+	/usr/lib/torsh/nc -lvnp $port
+	
+	echo "\n${LRED}Disconected!${NOCOLOR}"
+	
+	cleanup
+
+# connect
+elif [ "$mode" = "connect" ]; then
+
+	# Create torrc
+	echo "SocksPort $tor_proxy_port\n" 1> /tmp/torsh/torrc
+	
+	# Start tor and netcat
+	/usr/lib/torsh/tor -f /tmp/torsh/torrc &
+	tor_pid=$!
+	sleep 2
+	mknod /tmp/torsh/torr.sh p
+	/bin/sh 0< /tmp/torsh/torr.sh | /usr/lib/torsh/nc -x 127.0.0.1:$tor_proxy_port $address $port 1> /tmp/torsh/torr.sh
+
+	# Reconnect
+	while $reconnect; do
+		rm /tmp/torsh/torr.sh
+		mknod /tmp/torsh/torr.sh p
+		/bin/sh 0< /tmp/torsh/torr.sh | /usr/lib/torsh/nc -x 127.0.0.1:$tor_proxy_port $address $port 1> /tmp/torsh/torr.sh
+	done
+	
+	cleanup
+	
+# upgrade
+elif [ "$mode" = "upgrade" ]; then
+	kill $cfu_pid > /dev/null # Remove upgrade message
+	
+	# Check permissions
+	if [ "$USER" != "root" ]; then echo "${LRED}This operation requires root privilege!${NOCOLOR}"; exit; fi
+
+	# Download
+	/usr/lib/torsh/git clone https://github.com/pisoj/torsh.git /tmp/torsh/
+	
+	# Remove old stuff
+	rm -r /usr/lib/torsh/
+	rm /usr/bin/torsh
+	
+	# Install new version
+	/tmp/torsh/torsh/install.sh
+	
+	cleanup
+
+# remove
+elif [ "$mode" = "remove" ]; then
+	kill $cfu_pid > /dev/null # Remove update message
+	
+	# Check permissions
+	if [ "$USER" != "root" ]; then echo "${LRED}This operation requires root privilege!${NOCOLOR}"; exit; fi
+	
+	# Warning
+	echo -n "${LRED}This will complitly remove TorSh.\nYou will not be able to recover tor keys or any other TorSh data.\nAre you shure you want to continue? ${LYELLOW}[ y/N ] ${NOCOLOR}"
+	
+	# Confirm
+	confirm="N"
+	read confirm
+	
+	if [ "$confirm" = "y"  ] || [ "$confirm" = "Y" ]; then
+		# Remove
+		rm -r /etc/torsh/
+		rm -r /usr/lib/torsh/
+		rm /usr/bin/torsh
+		
+		echo "\n${LGREEN}DONE!${NOCOLOR}"
+		exit
+	else
+		# Abort
+		echo "\n${LRED}Operation aborted!${NOCOLOR}"
+	fi
+	
+	cleanup
+fi
