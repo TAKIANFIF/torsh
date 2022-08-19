@@ -1,10 +1,10 @@
-<center>
+![TorSh Logo](./logo.png)
 
-# TorSh
+## About
 
 TorSh is a tool thet simplyfies creation of reverse shell. It operates over  [Tor](https://www.torproject.org/) network. This is great for anonimity, and also help with the setup. You dot't need to do port fordwarding or any other kind of prepairation. It yust works!
 
-</center>
+</p>
 
 ## Features
 
@@ -17,8 +17,9 @@ TorSh is a tool thet simplyfies creation of reverse shell. It operates over  [To
 ## Installation
 
 ```
-git clone https://github.com/pisoj/torsh.git && cd torsh
-chmod -R +x ./lib && chmod +x ./torsh && chmod +x ./install.sh
+git clone https://github.com/pisoj/torsh.git
+cd torsh
+chmod +x ./install.sh
 sudo ./install.sh
 ```
 
@@ -34,6 +35,7 @@ torsh listen -p 5000
 torsh listen -p 5000
 ```
 
-## Disclaimer
+---
 
-This tool is only for testing and can only be used where strict consent has been given. Do not use it for illegal purposes! It is the end user’s responsibility to obey all applicable local, state and federal laws. I assume no liability and are not responsible for any misuse or damage caused by this tool and software.
+> ## Disclaimer
+> This tool is only for testing and can only be used where strict consent has been given. Do not use it for illegal purposes! It is the end user’s responsibility to obey all applicable local, state and federal laws. I assume no liability and are not responsible for any misuse or damage caused by this tool and software.

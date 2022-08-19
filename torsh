@@ -25,7 +25,7 @@ LCYAN='\033[01;36m'
 WHITE='\033[01;37m'
 
 # GLOBAL
-VERSION=0
+VERSION=1
 SMALL_HELP="Usage: ${YELLOW}torsh ${GREEN}[listen] [connect <address> [-r reconnect]] [-p <port>]${NOCOLOR}\n${LYELLOW}torsh -h ${LCYAN}-> more details${NOCOLOR}"
 HELP="Usage: ${LCYAN}torsh ${LYELLOW}[operation] ${LGREEN}{arguments} {options}${NOCOLOR}\n\n${LCYAN}OPERATIONS:${NOCOLOR}\n\t${LYELLOW}listen${LGREEN} {options}${NOCOLOR}\n\t\t${LYELLOW}-p ${LGREEN}[listening port number]${NOCOLOR} (9999 DEFAULT)\n\n\t${LYELLOW}connect ${LGREEN}[address] {options} ${NOCOLOR}\n\t\t\t${LYELLOW} -p ${LGREEN}[connect port number]${NOCOLOR} (9999 DEFAULT)\n\t\t\t${LYELLOW} -r${NOCOLOR} ${LCYAN}Reconnect${NOCOLOR} if connection is lost\n\n\n\t${LYELLOW}update${NOCOLOR} Update TorSh to the latest version\n\n\t${LRED}remove${NOCOLOR} Remove TorSh and all its data!\n\n\n${LCYAN}OPTIONS:${NOCOLOR}\n\t${LYELLOW}-p${LGREEN} [port number]${NOCOLOR} Port number used in current operation.\n\t\t\t OPTIONAL, 9999 used if not specified.\n\n\t${LYELLOW}-r ${LCYAN}RECOMENDED${NOCOLOR} If specified, device will try to connect\n\t\t\tto the address until TorSh is closed.\n\n\t${LYELLOW}-h${NOCOLOR} Print Help screen\n\n\n${LCYAN}EXAMPLES:${NOCOLOR}\n\t${LCYAN}Listening:${NOCOLOR}\n\t\t${YELLOW}torsh listen -p 5000\n\n\t${LCYAN}Connecting:${NOCOLOR}\n\t\t${YELLOW}torsh connect address.onion -p 5000 -r${NOCOLOR}"
 
@@ -39,6 +39,11 @@ cleanup() {
 # MODE
 mode="$1"
 address="$2"
+
+# Check addres if mode is connect
+if [ "$mode" = "connect" ] && [ "$address" = "" ]; then echo "${LRED}Invalid Address!${NOCOLOR}"; exit; fi
+
+# Shift based on option
 if [ "$mode" = "listen" ]; then shift; fi
 if [ "$mode" = "connect" ]; then shift; shift; fi
 
@@ -53,13 +58,12 @@ while getopts "::hrp:" option; do
       r) # Reconnect
          reconnect=true;;
      \?) # Invalid option
-         echo "Error: Invalid option"
-         exit;;
+         echo "${LRED}Error:${NOCOLOR} Invalid option\n";;
    esac
 done
 
 # Invalid Mode
-if [ "$mode" != "listen" ] && [ "$mode" != "connect" ] && [ "$mode" != "upgrade" ] && [ "$mode" != "remove" ]; then
+if [ "$mode" != "listen" ] && [ "$mode" != "connect" ] && [ "$mode" != "update" ] && [ "$mode" != "remove" ]; then
 	echo $SMALL_HELP
 	exit
 fi
@@ -67,7 +71,7 @@ fi
 trap cleanup INT
 
 # Check for updates
-if [ $(/usr/lib/torsh/curl -s https://raw.githubusercontent.com/pisoj/torsh/master/version.txt) > $VERSION ]; then echo "${YELLOW}New version avaible! Run ${LYELLOW}torsh upgrade${YELLOW} to install it.${NOCOLOR}"; fi &
+if [ $(/usr/lib/torsh/curl -s https://raw.githubusercontent.com/pisoj/torsh/master/version.txt) -gt $VERSION ]; then echo "${YELLOW}New version avaible! Run ${LYELLOW}torsh update${YELLOW} to install it.${NOCOLOR}"; fi &
 cfu_pid=$!
 
 # MAIN
@@ -96,7 +100,7 @@ if [ "$mode" = "listen" ]; then
 
 # connect
 elif [ "$mode" = "connect" ]; then
-
+	
 	# Create torrc
 	echo "SocksPort $tor_proxy_port\n" 1> /tmp/torsh/torrc
 	
@@ -116,9 +120,9 @@ elif [ "$mode" = "connect" ]; then
 	
 	cleanup
 	
-# upgrade
-elif [ "$mode" = "upgrade" ]; then
-	kill $cfu_pid > /dev/null # Remove upgrade message
+# update
+elif [ "$mode" = "update" ]; then
+	kill $cfu_pid > /dev/null # Remove update message
 	
 	# Check permissions
 	if [ "$USER" != "root" ]; then echo "${LRED}This operation requires root privilege!${NOCOLOR}"; exit; fi
@@ -131,7 +135,11 @@ elif [ "$mode" = "upgrade" ]; then
 	rm /usr/bin/torsh
 	
 	# Install new version
-	/tmp/torsh/torsh/install.sh
+	orginal_pwd=$(pwd)
+	cd /tmp/torsh/
+	chmod +x ./install.sh
+	./install.sh -n
+	cd $orginal_pwd
 	
 	cleanup
 
