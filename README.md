@@ -2,7 +2,7 @@
 
 ## About
 
-TorSh is a tool thet simplyfies creation of reverse shell. It operates over  [Tor](https://www.torproject.org/) network. This is great for anonimity, and also help with the setup. You dot't need to do port fordwarding or any other kind of prepairation. It yust works!
+TorSh is a tool thet simplyfies creation of reverse shell. It operates over  [Tor](https://www.torproject.org/) network. This is great for anonimity, and also help with the setup. You dot't need to do port forwarding or any other kind of prepairation. It yust works!
 
 </p>
 
