@@ -82,6 +82,10 @@ mkdir /tmp/torsh
 # listen
 if [ "$mode" = "listen" ]; then
 
+	# Create personal settings directory if not exist
+	mkdir /etc/torsh/$USER/ > /dev/null
+	chmod 700 /etc/torsh/$USER/
+
 	# Create torrc
 	echo "SocksPort 0\nDataDirectory /etc/torsh/$USER/dict/\nHiddenServiceDir /etc/torsh/$USER/\nHiddenServicePort $port 127.0.0.1:$port" 1> /tmp/torsh/torrc
 
